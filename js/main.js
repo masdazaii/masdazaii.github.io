@@ -54,7 +54,40 @@ $(document).ready(function(){
         });
         
     }
-});
+
+    Notification.requestPermission(function(status){
+        console.log('Notif permission status', status);
+    })
+
+    function displayNotification(){
+        if (Notification.permission === "granted"){
+            navigator.serviceWorker.getRegistration()
+            .then(function(req){
+                var option = {
+                    body : " Notifikasi ini",
+                    icon : 'images/icons/icon-128x128.png',
+                    vibrate : [100,50,100],
+                        data : {
+                        dateOfarrival : Date.now(),
+                        primaryKey : 1
+                    },
+                    actions: [
+                        {action : 'explore',title :'kunjungi situs',
+                        icon :'/images/icons/success.png'},
+                        {action : 'close',title : 'close notifications',
+                        icon :'/images/icons/error.png'}
+                    ]
+                };
+                req.showNotification('ini notifikasi',option)
+            })
+        }
+    }
+    $("#show-notification").on('click',function(){
+        console.log("button click");
+        displayNotification()
+    });
+
+});//tutup ready function
 
 if('serviceWorker' in navigator){
     window.addEventListener('load', function(){
