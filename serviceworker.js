@@ -5,9 +5,9 @@ var urlToCache = [
     '/js/main.js',
     '/js/jquery.min.js',
     '/css/main.css',
-    '/images/icons/icon-72x72.png',
-    '/images/15083098352901077999132.jpg',
-    '/manifest.json'
+    '/manifest.json',
+    '/fallback.json',
+    '/images/15083098352901077999132.jpg'
 ];
 
 // install cache on browser
@@ -23,6 +23,7 @@ self.addEventListener('install', function(event){
             }
         )
     )
+    self.skipWaiting();
 });
 
 //aktifasi SW
@@ -39,6 +40,9 @@ self.addEventListener('activate', function(event){
             );
         })
     );
+    if(self.clients && clients.claim){
+        clients.claim();
+    }
 });
 
 //fetch cache
@@ -46,34 +50,36 @@ self.addEventListener('fetch', function(event){
     var request = event.request;
     var url = new URL(request.url);
 
-    // pisah API dengan cache
-    // jika menggunakan data lokal cache
-    if (url.origin === location.origin){
+    /*
+    * menggunakan git
+    */
+    if(url.origin=== location.origin){
         event.respondWith(
-            caches.match(request).then(function (response) {
-                // jika ada maka tampilkan data dari cache, jika tidak ada maka fetch dari request
+            caches.match(request).then(function(response){
+                // jika ada di data maka ditampilkan data cache, jika tidak maka patch request
                 return response || fetch(request);
             })
-        );
-    } else{
-        // jika menggunakan internet API
+        )
+    } else {
+        // Internet API
         event.respondWith(
-            // buat cache baru
-            caches.open('mahasiswa-cache-v1').then(function (cache) {
-                return fetch(request).then(function (liveRequest) {
-                    cache.put(request,liveRequest.clone());
-                    // nyimpen hasil fetch ke cache name diatas
+            caches.open('mahasiswa-cache-v1').then(function(cache){
+                return fetch(request).then(function(liveRequest){
+                    cache.put(request, liveRequest.clone());
+                    // save caches to mahasiswa-cache-v1
                     return liveRequest;
-                }).catch(function () {
-                    return caches.match(request).then(function (response) {
-                        // jika cache kita cek ad isinya maka return response
-                        if (response) return response;  // jika tidak ketemu juga ya ke fallback.json
+                }).catch(function(){
+                    return caches.match(request).then(function(response){
+                        if(response) return response;
                         return caches.match('/fallback.json');
                     })
                 })
             })
         )
     }
+
+
+
     // event.respondWith(
     //     caches.match(event.request).then(function(response){
     //         console.log(response);
@@ -85,22 +91,42 @@ self.addEventListener('fetch', function(event){
     // )
 });
 
-self.addEventListener('notificationclose',function(n){
+self.addEventListener('notificationclose', function(n){
     var notification = n.notification;
     var primaryKey = notification.data.primaryKey;
 
-    console.log('close notification : ' + primaryKey);
+    console.log('Closed Notification : ' + primaryKey);
 });
 
-self.addEventListener('notificationclick',function(n){
+self.addEventListener('notificationclick', function(n){
     var notification = n.notification;
     var primaryKey = notification.data.primaryKey;
     var action = n.action;
 
-    if(action === "close"){
+    console.log('Notification : ', primaryKey);
+    if(action==='close'){
         notification.close();
-    }else{
-        clients.openWindow('www.google.com');
+    } else {
+        clients.openWindow('https://google.com');
         notification.close();
     }
 });
+
+    self.addEventListener('sync', function(event){
+        console.log('firing sync');
+        if(event.tag === 'image-fetch'){
+            console.log('sync event fired');
+            event.waitUntil(fetchImage());
+        }
+    })
+
+    function fetchImage(){
+        console.log('firing fetchImage()');
+        fetch('/images/15083098352901077999132.jpg').then(function(response){
+            return response;
+        }).then(function(text){
+            console.log('Request success', text);
+        }).catch(function(err){
+            console.log('Request failed', err)
+        })
+    }

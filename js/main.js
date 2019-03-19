@@ -12,7 +12,10 @@ $(document).ready(function(){
     var gender = [];
 
 
-    $.get(_url, function(data){
+
+
+    // $.get(_url, function(data){
+    function renderPage(data){
         $.each(data, function(key, items){
             _gend = items.gender;
 
@@ -28,7 +31,39 @@ $(document).ready(function(){
         $('#mhs-list').html(result);
         $('#mhs-select').html("<option value='semua'>semua</option>"+gender_result);
 
+    }
+
+    var networkDataReceiver = false;
+
+    /*
+    * start balapan antara service dengan cache
+    * fresh data from online service
+    */
+    var networkUpdate = fetch(_url).then(function(response){
+        return response.json();
+    }).then(function(data){
+        networkDataReceiver = true;
+        renderPage(data);
     })
+
+
+    /*ambilkan data dalam local cache */
+    caches.match(_url).then(function(response){
+        if(!response) throw Error("no data on cache")
+        return response.json();
+    }).then(function(data){
+        if(!networkDataReceiver){
+            renderPage(data);
+            console.log("render from cache")
+        }
+    }).catch(function(){
+        return networkUpdate;
+    });
+
+
+
+
+
 
     $("#mhs-select").on('change', function(){
         updateListMahasiwa($(this).val());
@@ -54,49 +89,103 @@ $(document).ready(function(){
         });
         
     }
+});
 
     Notification.requestPermission(function(status){
         console.log('Notif permission status', status);
-    })
 
-    function displayNotification(){
-        if (Notification.permission === "granted"){
-            navigator.serviceWorker.getRegistration()
-            .then(function(req){
-                var option = {
-                    body : " Notifikasi ini",
-                    icon : 'images/icons/icon-128x128.png',
-                    vibrate : [100,50,100],
-                        data : {
-                        dateOfarrival : Date.now(),
-                        primaryKey : 1
-                    },
-                    actions: [
-                        {action : 'explore',title :'kunjungi situs',
-                        icon :'/images/icons/success.png'},
-                        {action : 'close',title : 'close notifications',
-                        icon :'/images/icons/error.png'}
-                    ]
-                };
-                req.showNotification('ini notifikasi',option)
-            })
+        function displayNotification(){
+            if(Notification.permission === 'granted'){
+                navigator.serviceWorker.getRegistration()
+                .then(function(req){
+                    var option = {
+                        body :'Beli coklat kami',
+                        icon : 'images/icons/icon-72x72.png',
+                        vibrate : [100,50,100],
+                        data    : {
+                            dateOfArrival   : Date.now(),
+                            primaryKey  : 1
+                        }, actions   : [
+                                {action:'explore', title : 'kunjungi situs', icon :'images/icons/success.png' },
+                                {action:'close', title : 'Close Notification', icon :'images/icons/error.png' },
+                        ]
+                    };
+                    req.showNotification('Hai Sayang ...', option)
+                })
+            }
         }
-    }
-    $("#show-notification").on('click',function(){
-        console.log("button click");
-        displayNotification()
+    
+        $("#show-notification").on('click', function(){
+            displayNotification();
     });
 
-});//tutup ready function
+    function isOnline(){
+        var connectionStatus = $('#online-status');
+        if(navigator.onLine){
+            connectionStatus.html = '<p> Anda online </p>';
+        } else {
+            connectionStatus.html = '<p>Anda offline </p>';
+        }
+    }
+
+    window.addEventListener('online', isOnline);
+    window.addEventListener('offline', isOnline);
+    isOnline();
+
+}); // tutup ready function
+
+
+
 
 if('serviceWorker' in navigator){
     window.addEventListener('load', function(){
         navigator.serviceWorker.register('/serviceworker.js').then(
             function(reg){
-                console.log('SW registration success, scope : ',reg.scope);
+                document.getElementById('load-in-bg')
+                .addEventListener('click', function(){ // function(){} bisa ditulis ()=>{}
+                    reg.sync.register('image-fetch').then(function(){ // function(){} bisa ditulis ()=>{}
+                        console.log('sync registered');
+                    }).catch(function(err){ // function(){} bisa ditulis ()=>{}
+                        console.log('unable to fetch image, err:', err);
+                    })
+                })
             }, function(err){
                 console.log('SW registration failed : ', err);
             }
         )
     })
 }
+
+
+// /*
+// * IndexedDB
+// */
+// createDatabase();
+
+// function createDatabase(){
+//     if(!('indexedDB' in window)){
+//         console.log('Web Browser tidak mendukung indexed DB');
+//         return;
+//     }
+//     var request = window.indexedDB.open('latihan-pwa',1);
+//     request.onerror = errorDbHanddle;
+//     request.onupgradeneeded = function(e){
+//         var db = e.target.result;
+//         db.onerror = errorDbHanddle;
+
+//         var objectStore = db.createObjectStore('mahasiswa',{keyPath : 'nim'});
+//         console.log('Object store mahasiswa berhasil dibuat');
+//     }
+
+//     request.onsuccess = function(e){
+//         db = e.target.result;
+//         db.error = errorDbHanddle;
+//         console.log('Berhasil melakukan koneksi ke database lokal');
+
+//         // melakukan sesuatu
+//     }
+// }
+
+// function errorDbHanddle(e){
+//     console.log('Error DB : '+e.target.errorCode);
+// }
